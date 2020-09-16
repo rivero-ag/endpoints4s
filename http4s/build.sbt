@@ -16,7 +16,8 @@ val `http4s-server` =
       libraryDependencies ++= Seq(
         ("org.http4s" %% "http4s-core" % http4sVersion).withDottyCompat(scalaVersion.value),
         ("org.http4s" %% "http4s-dsl" % http4sVersion).withDottyCompat(scalaVersion.value),
-        ("org.http4s" %% "http4s-blaze-server" % http4sVersion % Test).withDottyCompat(scalaVersion.value)
+        ("org.http4s" %% "http4s-blaze-server" % http4sVersion % Test).withDottyCompat(scalaVersion.value),
+        compilerPlugin("org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full)
       )
     )
     .dependsOn(`algebra-jvm` % "test->test;compile->compile")
