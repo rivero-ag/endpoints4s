@@ -18,6 +18,7 @@ import org.http4s.{EntityEncoder, EntityDecoder, Header, Headers}
 import scala.util.control.NonFatal
 import cats.Monad
 import cats.data.EitherT
+import cats.MonadError
 
 /**
   * Interpreter for [[algebra.Endpoints]] based on http4s. It uses [[algebra.BuiltInErrors]]
@@ -83,47 +84,62 @@ trait EndpointsWithCustomErrors extends algebra.EndpointsWithCustomErrors with M
 
   type ResponseHeaders[A] = A => http4s.Headers
 
-  implicit val reqEntityMonad: Monad[RequestEntity] = new Monad[RequestEntity] {
+  implicit val requestEntityMonadError: MonadError[RequestEntity, Throwable] =
+    new MonadError[RequestEntity, Throwable] {
 
-    def flatMap[A, B](
-        fa: org.http4s.Request[Effect] => Effect[
-          Either[org.http4s.Response[Effect], A]
-        ]
-    )(
-        f: A => (
-            org.http4s.Request[Effect] => Effect[
-              Either[org.http4s.Response[Effect], B]
-            ]
-        )
-    ): org.http4s.Request[Effect] => Effect[
-      Either[org.http4s.Response[Effect], B]
-    ] =
-      req =>
-        fa(req).flatMap {
-          case Left(resp) => Effect.pure(resp.asLeft[B])
-          case Right(a)   => f(a)(req)
+      def raiseError[A](
+          e: Throwable
+      ): org.http4s.Request[Effect] => Effect[Either[org.http4s.Response[Effect], A]] =
+        _ => Effect.raiseError(e)
+
+      def handleErrorWith[A](
+          fa: org.http4s.Request[Effect] => Effect[Either[org.http4s.Response[Effect], A]]
+      )(
+          f: Throwable => (
+              org.http4s.Request[Effect] => Effect[Either[org.http4s.Response[Effect], A]]
+          )
+      ): org.http4s.Request[Effect] => Effect[Either[org.http4s.Response[Effect], A]] =
+        request => fa(request).handleErrorWith(throwable => f(throwable)(request))
+
+      def flatMap[A, B](
+          fa: org.http4s.Request[Effect] => Effect[
+            Either[org.http4s.Response[Effect], A]
+          ]
+      )(
+          f: A => (
+              org.http4s.Request[Effect] => Effect[
+                Either[org.http4s.Response[Effect], B]
+              ]
+          )
+      ): org.http4s.Request[Effect] => Effect[
+        Either[org.http4s.Response[Effect], B]
+      ] =
+        req =>
+          fa(req).flatMap {
+            case Left(resp) => Effect.pure(resp.asLeft[B])
+            case Right(a)   => f(a)(req)
+          }
+
+      def tailRecM[A, B](a: A)(
+          f: A => (
+              org.http4s.Request[Effect] => Effect[
+                Either[org.http4s.Response[Effect], Either[A, B]]
+              ]
+          )
+      ): org.http4s.Request[Effect] => Effect[
+        Either[org.http4s.Response[Effect], B]
+      ] =
+        req => {
+          Monad[EitherT[Effect, org.http4s.Response[Effect], ?]]
+            .tailRecM[A, B](a)(a => EitherT(f(a)(req)))
+            .value
         }
 
-    def tailRecM[A, B](a: A)(
-        f: A => (
-            org.http4s.Request[Effect] => Effect[
-              Either[org.http4s.Response[Effect], Either[A, B]]
-            ]
-        )
-    ): org.http4s.Request[Effect] => Effect[
-      Either[org.http4s.Response[Effect], B]
-    ] =
-      req => {
-        Monad[EitherT[Effect, org.http4s.Response[Effect], ?]]
-          .tailRecM[A, B](a)(a => EitherT(f(a)(req)))
-          .value
-      }
+      def pure[A](x: A): org.http4s.Request[Effect] => Effect[
+        Either[org.http4s.Response[Effect], A]
+      ] = _ => Effect.pure(x.asRight)
 
-    def pure[A](x: A): org.http4s.Request[Effect] => Effect[
-      Either[org.http4s.Response[Effect], A]
-    ] = _ => Effect.pure(x.asRight)
-
-  }
+    }
 
   case class Endpoint[A, B](
       request: Request[A],
