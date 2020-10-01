@@ -37,20 +37,27 @@ import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.Configuration
 import org.typelevel.discipline.scalatest.FunSuiteDiscipline
+import cats.laws.discipline._
+import cats.laws.discipline.eq._
+import org.http4s.Request
 
 
 object TypeclassInstancesTest extends AnyFunSuite with FunSuiteDiscipline with Configuration  {
   val server = new ServerInterpreterTest
   implicit val monadInstance = server.serverApi.requestEntityMonadError
 
-  implicit val eqInt = Eq.fromUniversalEquals[Int]
-
   implicit def arbitraryResponse:Arbitrary[org.http4s.Response[IO]] = ???
-//
-//  implicit def arbitraryRequest:Arbitrary[org.http4s.Request[IO]] = ???
-//
-//  implicit def arbRequestResponsePair[A: Arbitrary]: Arbitrary[(org.http4s.Request[IO], IO[Either[org.http4s.Response[IO], A]])] = ???
 
+  implicit val throwableEq: Eq[Throwable] = ???
+
+
+  implicit def weDiregardRequestAnyways[A]: ExhaustiveCheck[org.http4s.Request[IO]] = new ExhaustiveCheck[org.http4s.Request[IO]] {
+    def allValues: List[Request[IO]] = List(Request.apply[IO]())
+  }
+
+  implicit def yoloEq[A]:Eq[IO[A]] = new Eq[IO[A]] {
+    def eqv(x: IO[A], y: IO[A]): Boolean = x.unsafeRunSync() === y.unsafeRunSync()
+  }
 
   implicit def arbitraryRequestEntity[A](
     implicit arbitraryA: Arbitrary[A],
@@ -68,5 +75,5 @@ object TypeclassInstancesTest extends AnyFunSuite with FunSuiteDiscipline with C
   } yield (_:org.http4s.Request[IO]) => resp)
 
 
-  checkAll("Server RequestEntityMonad MonadLaws", MonadErrorTests[server.serverApi.RequestEntity, Throwable].monadError[Int, Int, Int])
+  checkAll("Server RequestEntityMonad MonadLaws", MonadErrorTests[server.serverApi.RequestEntity, Throwable].monadError[Boolean, Boolean, Boolean])
 }

@@ -18,6 +18,7 @@ val `http4s-server` =
         ("org.http4s" %% "http4s-dsl" % http4sVersion).withDottyCompat(scalaVersion.value),
         ("org.http4s" %% "http4s-blaze-server" % http4sVersion % Test).withDottyCompat(scalaVersion.value),
         ("org.typelevel" %% "cats-laws" % "2.0.0" % Test).withDottyCompat(scalaVersion.value),
+        ("org.typelevel" %% "cats-effect-laws" % "2.2.0" % Test).withDottyCompat(scalaVersion.value),
         ("com.github.alexarchambault" %% "scalacheck-shapeless_1.14" % "1.2.3" % Test).withDottyCompat(scalaVersion.value),
         ("org.typelevel" %% "discipline-core" % "1.0.0" % Test).withDottyCompat(scalaVersion.value),
         ("org.typelevel" %% "discipline-scalatest" % "1.0.0" % Test).withDottyCompat(scalaVersion.value),
